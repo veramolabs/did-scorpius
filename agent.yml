@@ -236,8 +236,8 @@ didManager:
       defaultProvider: did:ethr:rinkeby
       providers:
         # template: you can install your customized DID provider like so
-        did:my:
-          $require: ./build#MyIdentifierProvider
+        did:scorpius:
+          $require: ./build#ScorpiusIdentifierProvider
           $args:
             - defaultKms: local
         did:ethr:

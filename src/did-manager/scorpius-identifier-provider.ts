@@ -16,7 +16,7 @@ type IContext = IAgentContext<IKeyManager>
  *
  * @alpha
  */
-export class MyIdentifierProvider extends AbstractIdentifierProvider {
+export class ScorpiusIdentifierProvider extends AbstractIdentifierProvider {
   private defaultKms: string
 
   constructor(options: { defaultKms: string }) {

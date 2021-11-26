@@ -4,3 +4,13 @@ tmp
 database.sqlite
 tsconfig.tsbuildinfo
 .idea/
+#Hardhat files
+cache
+artifacts
+
+#Python artifacts
+__pycache__
+.pytest_cache
+
+#Starknet plugin
+starknet-artifacts
