@@ -184,6 +184,8 @@ didResolver:
               $ref: /universal-resolver
             sov:
               $ref: /universal-resolver
+            scorpius:
+              $require: './build#ScorpiusDidResolver'
 
 ethr-did-resolver:
   $require: ethr-did-resolver?t=function&p=/ethr#getResolver

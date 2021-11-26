@@ -21,6 +21,7 @@
   },
   "license": "MIT",
   "devDependencies": {
+    "@types/elliptic": "^6.4.14",
     "@types/jest": "27.0.3",
     "@veramo/cli": "3.1.0",
     "jest": "27.3.1",
@@ -37,6 +38,7 @@
   "dependencies": {
     "@veramo/core": "^3.0.0",
     "@veramo/did-manager": "^3.0.0",
-    "@veramo/key-manager": "^3.0.0"
+    "@veramo/key-manager": "^3.0.0",
+    "starknet": "^2.0.2"
   }
 }
