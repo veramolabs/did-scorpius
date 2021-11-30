@@ -26,17 +26,16 @@
     "@nomiclabs/hardhat-ethers": "^2.0.2",
     "@nomiclabs/hardhat-waffle": "^2.0.1",
     "@shardlabs/starknet-hardhat-plugin": "latest",
+    "@types/debug": "^4.1.7",
     "@types/elliptic": "^6.4.14",
-    "@types/mocha": "^9.0.0",
     "@types/jest": "27.0.3",
     "@veramo/cli": "3.1.0",
-    "chai": "^4.3.4",
     "ethereum-waffle": "^3.4.0",
     "ethers": "^5.4.6",
     "hardhat": "^2.6.2",
-    "ts-node": "^10.2.1",
     "jest": "27.3.1",
     "ts-jest": "27.0.7",
+    "ts-node": "^10.2.1",
     "typescript": "4.5.2"
   },
   "files": [
@@ -50,6 +49,7 @@
     "@veramo/core": "^3.0.0",
     "@veramo/did-manager": "^3.0.0",
     "@veramo/key-manager": "^3.0.0",
+    "debug": "^4.3.3",
     "starknet": "^2.0.2"
   }
 }

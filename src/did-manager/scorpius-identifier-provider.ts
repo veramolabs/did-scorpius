@@ -1,5 +1,11 @@
 import { IIdentifier, IKey, IService, IAgentContext, IKeyManager } from '@veramo/core'
 import { AbstractIdentifierProvider } from '@veramo/did-manager'
+import { CompiledContract, json, defaultProvider, compileCalldata,ec } from 'starknet'
+import fs from 'fs'
+import path from 'path'
+import Debug from 'debug'
+const debug = Debug('veramo:did-provider-scorpius')
+
 
 type IContext = IAgentContext<IKeyManager>
 
@@ -28,7 +34,32 @@ export class ScorpiusIdentifierProvider extends AbstractIdentifierProvider {
     { kms, alias }: { kms?: string; alias?: string },
     context: IContext
   ): Promise<Omit<IIdentifier, 'provider'>> {
-    throw Error('IdentityProvider createIdentity not implemented')
+    //@ts-ignore
+    const key = await context.agent.keyManagerCreate({ kms: kms || this.defaultKms, type: 'StarkNetKey' })
+    const compiledArgentAccount: CompiledContract = json.parse(
+      fs.readFileSync( path.resolve('./starknet-artifacts/contracts/ArgentAccount.cairo/ArgentAccount.json')).toString('ascii')
+    )
+
+    debug('Deploying argent contract')
+    const { address, transaction_hash } = await defaultProvider.deployContract(
+      compiledArgentAccount,
+      compileCalldata({
+        signer: key.publicKeyHex,
+        guardian: '0',
+      }),
+      key.publicKeyHex
+    );
+
+    debug('Transaction hash', transaction_hash)
+
+    const identifier: Omit<IIdentifier, 'provider'> = {
+      did: 'did:scorpius:' + address,
+      controllerKeyId: key.kid,
+      keys: [key],
+      services: [],
+    }
+    debug('Created', identifier.did)
+    return identifier
   }
 
   async deleteIdentifier(identity: IIdentifier, context: IContext): Promise<boolean> {

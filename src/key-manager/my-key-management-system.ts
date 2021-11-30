@@ -1,6 +1,8 @@
-import { TKeyType, IKey, ManagedKeyInfo, MinimalImportableKey } from '@veramo/core'
-import { AbstractKeyManagementSystem } from '@veramo/key-manager'
-
+import { TKeyType, IKey, ManagedKeyInfo, MinimalImportableKey, RequireOnly } from '@veramo/core'
+import { AbstractKeyManagementSystem, AbstractPrivateKeyStore, ManagedPrivateKey } from '@veramo/key-manager'
+import Debug from 'debug'
+import { ec, encode } from 'starknet'
+const debug = Debug('veramo:stark-kms')
 /**
  * You can use this template for an `AbstractKeyManagementSystem` implementation.
  * Key Management Systems are the bridge between key material and the cryptographic operations that can be performed with it.
@@ -14,11 +16,86 @@ import { AbstractKeyManagementSystem } from '@veramo/key-manager'
  * @alpha
  */
 export class MyKeyManagementSystem extends AbstractKeyManagementSystem {
+
+  private readonly keyStore: AbstractPrivateKeyStore
+
+  constructor(keyStore: AbstractPrivateKeyStore) {
+    super()
+    this.keyStore = keyStore
+  }
+
+  async importKey(args: Omit<MinimalImportableKey, 'kms'>): Promise<ManagedKeyInfo> {
+    if (!args.type || !args.privateKeyHex) {
+      throw new Error('invalid_argument: type and privateKeyHex are required to import a key')
+    }
+    const managedKey = this.asManagedKeyInfo({ alias: args.kid, ...args })
+    await this.keyStore.import({ alias: managedKey.kid, ...args })
+    debug('imported key', managedKey.type, managedKey.publicKeyHex)
+    return managedKey
+  }
+
+  /**
+   * Converts a {@link ManagedPrivateKey} to {@link ManagedKeyInfo}
+   */
+  private asManagedKeyInfo(args: RequireOnly<ManagedPrivateKey, 'privateKeyHex' | 'type'>): ManagedKeyInfo {
+    let key: Partial<ManagedKeyInfo>
+    switch (args.type as any) {
+      case 'StarkNetKey': {
+        const keyPair = ec.getKeyPair(args.privateKeyHex)
+        const publicKeyHex = ec.getStarkKey(keyPair)
+        key = {
+          type: args.type,
+          kid: args.alias || publicKeyHex,
+          publicKeyHex,
+          meta: {
+            algorithms: ['StarkNetSign'],
+          },
+        }
+        break
+      }
+      
+      default:
+        throw Error('not_supported: Key type not supported: ' + args.type)
+    }
+    return key as ManagedKeyInfo
+  }  
+
   /**
    * Sign the `data` using the `algorithm` and the key referenced by `keyRef`.
    */
-  async sign(args: { keyRef: Pick<IKey, 'kid'>; algorithm?: string | undefined; data: Uint8Array }): Promise<string> {
-    throw new Error('Method not implemented.')
+  async sign({
+    keyRef,
+    algorithm,
+    data,
+  }: {
+    keyRef: Pick<IKey, 'kid'>
+    algorithm?: string
+    data: Uint8Array
+  }): Promise<string> {
+    let managedKey: ManagedPrivateKey
+    try {
+      managedKey = await this.keyStore.get({ alias: keyRef.kid })
+    } catch (e) {
+      throw new Error(`key_not_found: No key entry found for kid=${keyRef.kid}`)
+    }
+
+    if (
+      managedKey.type as any === 'StarkNetKey' &&
+      (typeof algorithm === 'undefined' || ['StarkSign'].includes(algorithm))
+    ) {
+      return await this.signStark(managedKey.privateKeyHex, data)
+    } 
+    throw Error(`not_supported: Cannot sign ${algorithm} using key of type ${managedKey.type}`)
+  }
+
+  private async signStark(key: string, data: Uint8Array): Promise<string> {
+    // TODO
+    // const keyPair = ec.getKeyPair(key)
+    // const signer = ec.sign(keyPair, )
+    // const signature = await signer(data)
+    // base64url encoded string
+    const signature = 'a'
+    return signature as string
   }
 
   /**
@@ -30,20 +107,6 @@ export class MyKeyManagementSystem extends AbstractKeyManagementSystem {
     throw new Error('Method not implemented.')
   }
 
-  /**
-   * Import a `privateKeyHex` of type `type`.
-   * This method MUST create a `ManagedKeyInfo` by deriving the corresponding `publicKeyHex`,
-   *  and generating a key ID (`kid`) (or using the one provided).
-   *
-   * The `kid` will be used by Veramo to reference this key later for cryptographic operations (`sign()` & `sharedSecret()`).
-   *
-   * It is the responsibility of the key management system to store keys.
-   *
-   * @param args
-   */
-  async importKey(args: MinimalImportableKey): Promise<ManagedKeyInfo> {
-    throw new Error('Method not implemented.')
-  }
 
   async listKeys(): Promise<ManagedKeyInfo[]> {
     throw new Error('Method not implemented.')
@@ -52,7 +115,7 @@ export class MyKeyManagementSystem extends AbstractKeyManagementSystem {
   async createKey({ type, meta }: { type: TKeyType; meta?: any }): Promise<ManagedKeyInfo> {
     let key: ManagedKeyInfo
 
-    switch (type) {
+    switch (type as any) {
       case 'Ed25519':
         throw Error('MyKeyManagementSystem createKey Ed25519 not implemented')
         break
@@ -61,6 +124,12 @@ export class MyKeyManagementSystem extends AbstractKeyManagementSystem {
         break
       case 'X25519':
         throw Error('MyKeyManagementSystem createKey X25519 not implemented')
+      case 'StarkNetKey':
+        const keyPair = ec.genKeyPair()
+        key = await this.importKey({
+          type,
+          privateKeyHex: encode.addHexPrefix(keyPair.getPrivate().toString('hex')),
+        })
         break
       default:
         throw Error('Key type not supported by MyKeyManagementSystem: ' + type)

@@ -1,10 +1,9 @@
-import { expect } from "chai";
 import { starknet } from "hardhat";
 import { StarknetContract, StarknetContractFactory } from "hardhat/types/runtime";
 import { stark, compileCalldata } from "starknet";
 
 describe("Starknet", function () {
-  this.timeout(300_000); // 5 min
+
   let preservedRegistryAddress: string;
 
   let registryContractFactory: StarknetContractFactory;
@@ -13,7 +12,7 @@ describe("Starknet", function () {
   let registryContract: StarknetContract;
   let accountContract: StarknetContract;
 
-  before(async function() {
+  beforeAll(async function() {
     // assumes contracts have been compiled
     accountContractFactory = await starknet.getContractFactory("account");
     registryContractFactory = await starknet.getContractFactory("registry");
@@ -31,12 +30,12 @@ describe("Starknet", function () {
       address: BigInt(accountContract.address), 
       index: 0 
     });
-    expect(key).to.deep.equal({ type:0n, publicKey: 0n });
+    expect(key).toEqual({ type:0n, publicKey: 0n });
     
     const { res: len } = await registryContract.call("get_keys_len", {
       address: BigInt(accountContract.address) 
     });
-    expect(len).to.deep.equal(0n);
+    expect(len).toEqual(0n);
   })
 
   it("should add a key", async function() {
@@ -50,14 +49,14 @@ describe("Starknet", function () {
     const { res: len } = await registryContract.call("get_keys_len", {
       address: BigInt(accountContract.address)
     });
-    expect(len).to.deep.equal(1n);
+    expect(len).toEqual(1n);
     
     const { res: key } = await registryContract.call("get_key", {
       address: BigInt(accountContract.address),
       index: 0n
     });
     
-    expect(key).to.deep.equal({ 
+    expect(key).toEqual({ 
       type:1n,
       publicKey: 123n
     });
@@ -77,10 +76,10 @@ describe("Starknet", function () {
       address: BigInt(accountContract.address),
       index: 0n
     });
-    expect(key).to.deep.equal({ type:0n, publicKey: 0n });
+    expect(key).toEqual({ type:0n, publicKey: 0n });
 
     const { res: len } = await registryContract.call("get_keys_len", { address: BigInt(accountContract.address) });
-    expect(len).to.deep.equal(1n);
+    expect(len).toEqual(1n);
   })
 
   });

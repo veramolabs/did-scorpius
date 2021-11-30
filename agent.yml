@@ -224,6 +224,13 @@ keyManager:
         # template: you can install your own Key Management System implementation too
         my:
           $require: ./build#MyKeyManagementSystem
+          $args:
+            - $require: '@veramo/data-store#PrivateKeyStore' # template: or you can use './build#MyPrivateKeyStore' instead
+              $args:
+                - $ref: /dbConnection
+                - $require: '@veramo/kms-local#SecretBox'
+                  $args:
+                    - $ref: /constants/secretKey
 
 # DID Manager
 didManager:
@@ -239,7 +246,7 @@ didManager:
         did:scorpius:
           $require: ./build#ScorpiusIdentifierProvider
           $args:
-            - defaultKms: local
+            - defaultKms: my
         did:ethr:
           $require: '@veramo/did-provider-ethr#EthrDIDProvider'
           $args:
