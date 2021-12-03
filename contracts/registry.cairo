@@ -3,10 +3,13 @@
 
 from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.starknet.common.syscalls import get_caller_address
+from starkware.cairo.common.uint256 import (
+    Uint256
+)
 
 struct Key:
     member type: felt
-    member publicKey: felt
+    member publicKey: Uint256
 end
 
 @storage_var
@@ -59,6 +62,6 @@ func remove_key{
     }(index: felt):
     # }(address: felt, index: felt):
     let (address) = get_caller_address()
-    keys.write(address,  index, value=Key(type=0, publicKey=0)) 
+    keys.write(address,  index, value=Key(type=0, publicKey=Uint256(0,0))) 
     return ()
 end

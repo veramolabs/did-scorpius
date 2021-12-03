@@ -1,10 +1,13 @@
-import { IIdentifier, IKey, IService, IAgentContext, IKeyManager } from '@veramo/core'
+import { IIdentifier, IKey, IService, IAgentContext, IKeyManager, TKeyType } from '@veramo/core'
 import { AbstractIdentifierProvider } from '@veramo/did-manager'
-import { CompiledContract, json, defaultProvider, compileCalldata,ec } from 'starknet'
+import { CompiledContract, json, defaultProvider, compileCalldata, stark, number, uint256, shortString } from 'starknet'
 import fs from 'fs'
 import path from 'path'
 import Debug from 'debug'
+import { Sign, Signer } from '../key-manager/starknet-signer'
 const debug = Debug('veramo:did-provider-scorpius')
+
+const registryAddress = '0x026baddbacb85e634d59e1f63fb984d6b308533141cefcfba00f91ae00d17512'
 
 
 type IContext = IAgentContext<IKeyManager>
@@ -35,12 +38,15 @@ export class ScorpiusIdentifierProvider extends AbstractIdentifierProvider {
     context: IContext
   ): Promise<Omit<IIdentifier, 'provider'>> {
     //@ts-ignore
+    //FIXME add 'StarkNetKey' to TKeyType
     const key = await context.agent.keyManagerCreate({ kms: kms || this.defaultKms, type: 'StarkNetKey' })
+    
+    //FIXME should not use `fs`
     const compiledArgentAccount: CompiledContract = json.parse(
       fs.readFileSync( path.resolve('./starknet-artifacts/contracts/ArgentAccount.cairo/ArgentAccount.json')).toString('ascii')
     )
 
-    debug('Deploying argent contract')
+    debug('Deploying ArgentAccount contract')
     const { address, transaction_hash } = await defaultProvider.deployContract(
       compiledArgentAccount,
       compileCalldata({
@@ -50,7 +56,9 @@ export class ScorpiusIdentifierProvider extends AbstractIdentifierProvider {
       key.publicKeyHex
     );
 
-    debug('Transaction hash', transaction_hash)
+    debug('Account address', address)
+    debug('Waiting for transaction', transaction_hash)
+    await defaultProvider.waitForTx(transaction_hash);
 
     const identifier: Omit<IIdentifier, 'provider'> = {
       did: 'did:scorpius:' + address,
@@ -62,6 +70,21 @@ export class ScorpiusIdentifierProvider extends AbstractIdentifierProvider {
     return identifier
   }
 
+  private getSigner(identifier: IIdentifier, context: IContext): Sign {
+    const sign = async (msgHash: string) => {
+      const signature: any = await context.agent.keyManagerSign({
+        keyRef: identifier.controllerKeyId as string,
+        data: msgHash,
+        algorithm: 'StarkNetSign',
+      })
+
+      //FIXME
+      // const signature = JSON.parse(signatureString)
+      return signature
+    }
+    return sign
+  }
+
   async deleteIdentifier(identity: IIdentifier, context: IContext): Promise<boolean> {
     throw Error('IdentityProvider deleteIdentity not implemented')
     return true
@@ -71,7 +94,28 @@ export class ScorpiusIdentifierProvider extends AbstractIdentifierProvider {
     { identifier, key, options }: { identifier: IIdentifier; key: IKey; options?: any },
     context: IContext
   ): Promise<any> {
-    throw Error('IdentityProvider addKey not implemented')
+    const address = identifier.did.split(':').pop() as string
+
+    const sign = this.getSigner(identifier, context)    
+    const signer = new Signer(defaultProvider, address, sign);
+    debug('Adding new key', key.publicKeyHex)
+
+    const keyUint256 = uint256.bnToUint256(number.toBN('0x' + key.publicKeyHex))
+
+    const { code, transaction_hash } = await signer.addTransaction({
+      type: 'INVOKE_FUNCTION',
+      contract_address: registryAddress,
+      entry_point_selector: stark.getSelectorFromName('add_key'),
+      calldata: [
+        shortString.encodeShortString(key.type), 
+        keyUint256.low.toString(),
+        keyUint256.high.toString()
+      ],
+    });
+    debug('Transaction code', code)
+    debug('Waiting for transaction', transaction_hash)
+    await defaultProvider.waitForTx(transaction_hash);
+
     return { success: true }
   }
 

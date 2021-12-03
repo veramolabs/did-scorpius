@@ -1,22 +1,12 @@
-import { defaultProvider, stark } from 'starknet'
-import { Base58 } from '@ethersproject/basex'
-import { BigNumber } from '@ethersproject/bignumber'
-import { Block, BlockTag } from '@ethersproject/providers'
+import { defaultProvider, stark, uint256, shortString } from 'starknet'
 import { ConfigurationOptions } from './configuration'
 import {
   DIDDocument,
   DIDResolutionOptions,
   DIDResolutionResult,
-  DIDResolver,
   ParsedDID,
   Resolvable,
-  ServiceEndpoint,
-  VerificationMethod,
 } from 'did-resolver'
-
-import * as qs from 'querystring'
-import { Errors, identifierMatcher } from './helpers'
-
 
 export interface Key {
   type: string
@@ -24,12 +14,12 @@ export interface Key {
 }
 
 const keyMapping: Record<string, string> = {
-  '0': 'EcdsaSecp256k1VerificationKey2019',
-  '1': 'Ed25519VerificationKey2018',
-  '2': 'X25519KeyAgreementKey2019',
+  'Secp256k1': 'EcdsaSecp256k1VerificationKey2019',
+  'Ed25519': 'Ed25519VerificationKey2018',
+  'X25519': 'X25519KeyAgreementKey2019',
 }
 
-const registryAddress = '0x07b4f8fcfc647cbbeac352588faec88b69c1d659128a8ecf8b0d71cbbc3979a2'
+const registryAddress = '0x026baddbacb85e634d59e1f63fb984d6b308533141cefcfba00f91ae00d17512'
 
 export class ScorpiusDidResolver {
 
@@ -63,9 +53,11 @@ const resolve = async (
       calldata: [BigInt(parsed.id).toString(), BigInt(index).toString()]
     })
     if (result[0]!== '0x0' && result[1] != '0x0') {
+      const publicKey = uint256.uint256ToBN({high: result[2], low: result[1]}).toString('hex')
+      const type = shortString.decodeShortString(result[0])
       keys.push({
-        type: BigInt(result[0]).toString(),
-        publicKey: BigInt(result[1]).toString(),
+        type,
+        publicKey,
       })
     }
   }

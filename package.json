@@ -50,6 +50,6 @@
     "@veramo/did-manager": "^3.0.0",
     "@veramo/key-manager": "^3.0.0",
     "debug": "^4.3.3",
-    "starknet": "^2.0.2"
+    "starknet": "^2.3.1"
   }
 }

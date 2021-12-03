@@ -2,7 +2,13 @@ import { TKeyType, IKey, ManagedKeyInfo, MinimalImportableKey, RequireOnly } fro
 import { AbstractKeyManagementSystem, AbstractPrivateKeyStore, ManagedPrivateKey } from '@veramo/key-manager'
 import Debug from 'debug'
 import { ec, encode } from 'starknet'
-const debug = Debug('veramo:stark-kms')
+import {
+  generateKeyPair as generateSigningKeyPair,
+  extractPublicKeyFromSecretKey,
+} from '@stablelib/ed25519'
+import * as u8a from 'uint8arrays'
+
+const debug = Debug('veramo:my-kms')
 /**
  * You can use this template for an `AbstractKeyManagementSystem` implementation.
  * Key Management Systems are the bridge between key material and the cryptographic operations that can be performed with it.
@@ -40,6 +46,19 @@ export class MyKeyManagementSystem extends AbstractKeyManagementSystem {
   private asManagedKeyInfo(args: RequireOnly<ManagedPrivateKey, 'privateKeyHex' | 'type'>): ManagedKeyInfo {
     let key: Partial<ManagedKeyInfo>
     switch (args.type as any) {
+      case 'Ed25519': {
+        const secretKey = u8a.fromString(args.privateKeyHex.toLowerCase(), 'base16')
+        const publicKeyHex = u8a.toString(extractPublicKeyFromSecretKey(secretKey), 'base16')
+        key = {
+          type: args.type,
+          kid: args.alias || publicKeyHex,
+          publicKeyHex,
+          meta: {
+            algorithms: ['Ed25519', 'EdDSA'],
+          },
+        }
+        break
+      }
       case 'StarkNetKey': {
         const keyPair = ec.getKeyPair(args.privateKeyHex)
         const publicKeyHex = ec.getStarkKey(keyPair)
@@ -81,21 +100,19 @@ export class MyKeyManagementSystem extends AbstractKeyManagementSystem {
 
     if (
       managedKey.type as any === 'StarkNetKey' &&
-      (typeof algorithm === 'undefined' || ['StarkSign'].includes(algorithm))
+      (typeof algorithm === 'undefined' || ['StarkNetSign'].includes(algorithm))
     ) {
       return await this.signStark(managedKey.privateKeyHex, data)
     } 
     throw Error(`not_supported: Cannot sign ${algorithm} using key of type ${managedKey.type}`)
   }
 
-  private async signStark(key: string, data: Uint8Array): Promise<string> {
-    // TODO
-    // const keyPair = ec.getKeyPair(key)
-    // const signer = ec.sign(keyPair, )
-    // const signature = await signer(data)
-    // base64url encoded string
-    const signature = 'a'
-    return signature as string
+  private async signStark(key: string, data: Uint8Array): Promise<any> {
+    const keyPair = ec.getKeyPair(key)
+    const signature = ec.sign(keyPair, Buffer.from(data).toString('utf-8'))
+    // FIXME
+//    return JSON.stringify(signature)
+    return signature
   }
 
   /**
@@ -116,9 +133,14 @@ export class MyKeyManagementSystem extends AbstractKeyManagementSystem {
     let key: ManagedKeyInfo
 
     switch (type as any) {
-      case 'Ed25519':
-        throw Error('MyKeyManagementSystem createKey Ed25519 not implemented')
+      case 'Ed25519': {
+        const keyPairEd25519 = generateSigningKeyPair()
+        key = await this.importKey({
+          type,
+          privateKeyHex: u8a.toString(keyPairEd25519.secretKey, 'base16'),
+        })
         break
+      }
       case 'Secp256k1':
         throw Error('MyKeyManagementSystem createKey Secp256k1 not implemented')
         break
