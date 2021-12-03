@@ -99,6 +99,7 @@ export class ScorpiusIdentifierProvider extends AbstractIdentifierProvider {
     const sign = this.getSigner(identifier, context)    
     const signer = new Signer(defaultProvider, address, sign);
     debug('Adding new key', key.publicKeyHex)
+    debug('Registry address', registryAddress)
 
     const keyUint256 = uint256.bnToUint256(number.toBN('0x' + key.publicKeyHex))
 
